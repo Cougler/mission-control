@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { DashboardData, MCPServer, Skill, Project, Session } from "@/lib/data";
+import type { DashboardData, MCPServer, Skill, Project } from "@/lib/data";
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
@@ -21,17 +21,6 @@ function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso + (iso.includes("T") ? "" : "T00:00:00"));
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function fmtDatetime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
 }
 
 // ── Section Card ──────────────────────────────────────────────────────────────
@@ -146,133 +135,71 @@ function SkillsRegistry({ skills }: { skills: Skill[] }) {
   );
 }
 
-// ── Projects ──────────────────────────────────────────────────────────────────
+// ── Project Cards ─────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "var(--green)",
-  paused: "var(--yellow)",
+  active:   "var(--green)",
+  paused:   "var(--yellow)",
   archived: "var(--muted)",
 };
 
-function Projects({ projects }: { projects: Project[] }) {
+function ProjectCards({ projects }: { projects: Project[] }) {
   if (!projects.length) {
     return <p className="px-4 py-4 text-xs" style={{ color: "var(--muted)" }}>No projects found in ~/Apps.</p>;
   }
   return (
-    <table>
-      <thead>
-        <tr style={{ borderBottom: "1px solid var(--border)" }}>
-          {["Project", "Description", "Stack", "Status", "Last Active", "Sessions"].map((h) => (
-            <th key={h} className="px-4 py-2 text-[10px] tracking-widest uppercase text-left" style={{ color: "var(--muted)" }}>
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {projects.map((p) => {
-          const statusColor = STATUS_COLORS[p.status?.toLowerCase()] ?? "var(--dim)";
-          return (
-            <tr
-              key={p.path}
-              className="transition-colors"
-              style={{ borderBottom: "1px solid var(--border)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface2)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-            >
-              <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: "var(--text)" }}>
+    <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+      {projects.map((p) => {
+        const statusColor = STATUS_COLORS[p.status?.toLowerCase()] ?? "var(--dim)";
+        return (
+          <div
+            key={p.path}
+            className="flex flex-col gap-3 rounded-lg p-4 transition-colors"
+            style={{ background: "var(--surface2)", border: "1px solid var(--border2)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--dim)")}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border2)")}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-2">
+              <span className="font-bold text-sm leading-tight" style={{ color: "var(--text)" }}>
                 {p.name}
-              </td>
-              <td className="px-4 py-3 text-xs max-w-xs" style={{ color: "var(--dim)" }}>
-                {p.description || "—"}
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex flex-wrap gap-1">
-                  {p.stack?.length ? p.stack.map((s) => (
-                    <span
-                      key={s}
-                      className="rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap"
-                      style={{ background: "var(--surface2)", color: "var(--blue)", border: "1px solid var(--border2)" }}
-                    >
-                      {s}
-                    </span>
-                  )) : <span style={{ color: "var(--muted)" }}>—</span>}
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                {p.status ? (
-                  <span className="flex items-center gap-1.5 text-xs whitespace-nowrap" style={{ color: statusColor }}>
-                    <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: statusColor }} />
-                    {p.status}
-                  </span>
-                ) : <span style={{ color: "var(--muted)" }}>—</span>}
-              </td>
-              <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--dim)" }}>
-                {fmtDate(p.lastActive)}
-              </td>
-              <td className="px-4 py-3 text-xs" style={{ color: p.sessions ? "var(--text)" : "var(--muted)" }}>
-                {p.sessions != null ? (
-                  <span
-                    className="rounded px-2 py-0.5"
-                    style={{ background: "var(--surface2)", border: "1px solid var(--border2)" }}
-                  >
-                    {p.sessions}
-                  </span>
-                ) : "—"}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  );
-}
-
-// ── Session Log ───────────────────────────────────────────────────────────────
-
-function SessionLog({ sessions }: { sessions: Session[] }) {
-  if (!sessions.length) {
-    return (
-      <p className="px-4 py-4 text-xs" style={{ color: "var(--muted)" }}>
-        No entries yet. Say &ldquo;save to dashboard&rdquo; at the end of any session.
-      </p>
-    );
-  }
-  return (
-    <div className="divide-y" style={{ borderColor: "var(--border)" }}>
-      {sessions.map((s, i) => (
-        <div
-          key={`${s.cwd}-${i}`}
-          className="flex items-start gap-4 px-4 py-3 transition-colors"
-          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface2)")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-        >
-          {/* Timeline dot + connector */}
-          <div className="mt-1.5 flex flex-col items-center gap-1 flex-shrink-0">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--teal)" }} />
-            {i < sessions.length - 1 && (
-              <div className="w-px flex-1 min-h-4" style={{ background: "var(--border2)" }} />
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>
-                {fmtDatetime(s.timestamp)}
               </span>
-              <span
-                className="rounded px-1.5 py-0.5 text-[10px]"
-                style={{ background: "var(--surface2)", color: "var(--teal)", border: "1px solid var(--border2)" }}
-              >
-                {s.display}
-              </span>
+              {p.status && (
+                <span className="flex items-center gap-1.5 text-[10px] whitespace-nowrap flex-shrink-0 mt-0.5" style={{ color: statusColor }}>
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: statusColor, boxShadow: p.status === "active" ? `0 0 5px ${statusColor}` : "none" }} />
+                  {p.status}
+                </span>
+              )}
             </div>
-            <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--dim)" }}>
-              {s.summary || "—"}
+
+            {/* Notes — primary content */}
+            <p className="text-xs leading-relaxed flex-1" style={{ color: p.notes ? "var(--text)" : "var(--muted)", fontStyle: p.notes ? "normal" : "italic" }}>
+              {p.notes || "No notes yet — say \"end mission\" to log a status."}
             </p>
+
+            {/* Stack tags */}
+            {p.stack?.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {p.stack.map((s) => (
+                  <span
+                    key={s}
+                    className="rounded px-1.5 py-0.5 text-[10px]"
+                    style={{ background: "var(--surface)", color: "var(--blue)", border: "1px solid var(--border)" }}
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="flex items-center justify-between text-[10px] pt-1 border-t" style={{ borderColor: "var(--border)", color: "var(--muted)" }}>
+              <span>{p.missions != null ? `${p.missions} mission${p.missions === 1 ? "" : "s"}` : "no missions yet"}</span>
+              <span>{p.lastActive ? fmtDate(p.lastActive) : "—"}</span>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -399,14 +326,9 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Row 2: Projects full width */}
-          <Card title="Projects" icon="📁">
-            <Projects projects={data.projects} />
-          </Card>
-
-          {/* Row 3: Session log */}
-          <Card title={`Session Log  ·  ${data.sessions.length} ${data.sessions.length === 1 ? "entry" : "entries"}`} icon="📋">
-            <SessionLog sessions={data.sessions} />
+          {/* Row 2: Project status cards */}
+          <Card title={`Projects  ·  ${data.projects.length} active`} icon="📡">
+            <ProjectCards projects={data.projects} />
           </Card>
 
         </main>
@@ -414,8 +336,7 @@ export default function Dashboard() {
 
       {/* Footer */}
       <footer className="pb-8 text-center text-[11px]" style={{ color: "var(--muted)" }}>
-        Auto-refreshes every 30s · data from{" "}
-        <code style={{ color: "var(--dim)" }}>~/.claude/mission-control/</code>
+        Auto-refreshes every 30s · say <code style={{ color: "var(--dim)" }}>end mission</code> to log project status
       </footer>
     </div>
   );

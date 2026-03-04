@@ -29,8 +29,9 @@ export interface Project {
   description: string;
   status: string;
   stack: string[];
+  notes: string;
   lastActive: string | null;
-  sessions: number | null;
+  missions: number | null;
 }
 
 export interface Session {
@@ -83,8 +84,8 @@ function parseSessions(lines: string[]): Session[] {
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 }
 
-function mergeSessionStats(
-  projects: Omit<Project, "lastActive" | "sessions">[],
+function mergeMissionStats(
+  projects: Omit<Project, "lastActive" | "missions">[],
   sessions: Session[]
 ): Project[] {
   const stats: Record<string, { lastActive: string; count: number }> = {};
@@ -98,11 +99,18 @@ function mergeSessionStats(
       if (d > stats[s.cwd].lastActive) stats[s.cwd].lastActive = d;
     }
   }
-  return projects.map((p) => ({
-    ...p,
-    lastActive: stats[p.path]?.lastActive ?? null,
-    sessions: stats[p.path]?.count ?? null,
-  }));
+  return projects
+    .map((p) => ({
+      ...p,
+      lastActive: stats[p.path]?.lastActive ?? null,
+      missions: stats[p.path]?.count ?? null,
+    }))
+    .sort((a, b) => {
+      if (!a.lastActive && !b.lastActive) return a.name.localeCompare(b.name);
+      if (!a.lastActive) return 1;
+      if (!b.lastActive) return -1;
+      return b.lastActive.localeCompare(a.lastActive);
+    });
 }
 
 // ── Local (dev) ────────────────────────────────────────────────────────────────
@@ -163,7 +171,7 @@ function getLocalSessions(): Session[] {
   return parseSessions(lines);
 }
 
-function getLocalProjects(): Omit<Project, "lastActive" | "sessions">[] {
+function getLocalProjects(): Omit<Project, "lastActive" | "missions">[] {
   if (!fs.existsSync(APPS_DIR)) return [];
   return fs
     .readdirSync(APPS_DIR)
@@ -172,12 +180,13 @@ function getLocalProjects(): Omit<Project, "lastActive" | "sessions">[] {
     .map((name) => {
       const projectPath = path.join(APPS_DIR, name);
       const mcFile = path.join(projectPath, ".mc.json");
-      let description = "", status = "", stack: string[] = [];
+      let description = "", status = "", stack: string[] = [], notes = "";
       try {
         const meta = JSON.parse(fs.readFileSync(mcFile, "utf-8"));
         description = meta.description ?? "";
         status = meta.status ?? "";
         stack = meta.stack ?? [];
+        notes = meta.notes ?? "";
       } catch { /* no metadata */ }
       return {
         name,
@@ -186,6 +195,7 @@ function getLocalProjects(): Omit<Project, "lastActive" | "sessions">[] {
         description,
         status,
         stack,
+        notes,
       };
     });
 }
@@ -197,7 +207,7 @@ function getLocalData(): DashboardData {
     lastUpdated: new Date().toISOString(),
     mcpServers: getLocalMCPServers(),
     skills: getLocalSkills(),
-    projects: mergeSessionStats(rawProjects, sessions),
+    projects: mergeMissionStats(rawProjects, sessions),
     sessions,
   };
 }
@@ -207,7 +217,7 @@ function getLocalData(): DashboardData {
 interface RemoteConfig {
   mcpServers: MCPServer[];
   skills: Skill[];
-  projects: Omit<Project, "lastActive" | "sessions">[];
+  projects: Omit<Project, "lastActive" | "missions">[];
 }
 
 async function getRemoteData(baseUrl: string): Promise<DashboardData> {
@@ -224,7 +234,7 @@ async function getRemoteData(baseUrl: string): Promise<DashboardData> {
     lastUpdated: new Date().toISOString(),
     mcpServers: config.mcpServers ?? [],
     skills: config.skills ?? [],
-    projects: mergeSessionStats(config.projects ?? [], sessions),
+    projects: mergeMissionStats(config.projects ?? [], sessions),
     sessions,
   };
 }
