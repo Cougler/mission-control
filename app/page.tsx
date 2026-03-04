@@ -148,51 +148,81 @@ function SkillsRegistry({ skills }: { skills: Skill[] }) {
 
 // ── Projects ──────────────────────────────────────────────────────────────────
 
+const STATUS_COLORS: Record<string, string> = {
+  active: "var(--green)",
+  paused: "var(--yellow)",
+  archived: "var(--muted)",
+};
+
 function Projects({ projects }: { projects: Project[] }) {
   if (!projects.length) {
-    return <p className="px-4 py-4 text-xs" style={{ color: "var(--muted)" }}>No projects tracked yet.</p>;
+    return <p className="px-4 py-4 text-xs" style={{ color: "var(--muted)" }}>No projects found in ~/Apps.</p>;
   }
   return (
     <table>
       <thead>
         <tr style={{ borderBottom: "1px solid var(--border)" }}>
-          {["Project", "Path", "Last Active", "Sessions"].map((h) => (
-            <th key={h} className="px-4 py-2 text-[10px] tracking-widest uppercase" style={{ color: "var(--muted)" }}>
+          {["Project", "Description", "Stack", "Status", "Last Active", "Sessions"].map((h) => (
+            <th key={h} className="px-4 py-2 text-[10px] tracking-widest uppercase text-left" style={{ color: "var(--muted)" }}>
               {h}
             </th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {projects.map((p) => (
-          <tr
-            key={p.path}
-            className="transition-colors"
-            style={{ borderBottom: "1px solid var(--border)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface2)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-          >
-            <td className="px-4 py-3 font-semibold" style={{ color: "var(--text)" }}>
-              {p.name}
-            </td>
-            <td className="px-4 py-3">
-              <span className="text-xs" style={{ color: "var(--teal)" }}>{p.display}</span>
-            </td>
-            <td className="px-4 py-3 text-xs" style={{ color: "var(--dim)" }}>
-              {fmtDate(p.lastActive)}
-            </td>
-            <td className="px-4 py-3 text-xs" style={{ color: p.sessions ? "var(--text)" : "var(--muted)" }}>
-              {p.sessions != null ? (
-                <span
-                  className="rounded px-2 py-0.5"
-                  style={{ background: "var(--surface2)", border: "1px solid var(--border2)" }}
-                >
-                  {p.sessions}
-                </span>
-              ) : "—"}
-            </td>
-          </tr>
-        ))}
+        {projects.map((p) => {
+          const statusColor = STATUS_COLORS[p.status?.toLowerCase()] ?? "var(--dim)";
+          return (
+            <tr
+              key={p.path}
+              className="transition-colors"
+              style={{ borderBottom: "1px solid var(--border)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface2)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <td className="px-4 py-3 font-semibold whitespace-nowrap" style={{ color: "var(--text)" }}>
+                {p.name}
+              </td>
+              <td className="px-4 py-3 text-xs max-w-xs" style={{ color: "var(--dim)" }}>
+                {p.description || "—"}
+              </td>
+              <td className="px-4 py-3">
+                <div className="flex flex-wrap gap-1">
+                  {p.stack?.length ? p.stack.map((s) => (
+                    <span
+                      key={s}
+                      className="rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap"
+                      style={{ background: "var(--surface2)", color: "var(--blue)", border: "1px solid var(--border2)" }}
+                    >
+                      {s}
+                    </span>
+                  )) : <span style={{ color: "var(--muted)" }}>—</span>}
+                </div>
+              </td>
+              <td className="px-4 py-3">
+                {p.status ? (
+                  <span className="flex items-center gap-1.5 text-xs whitespace-nowrap" style={{ color: statusColor }}>
+                    <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: statusColor }} />
+                    {p.status}
+                  </span>
+                ) : <span style={{ color: "var(--muted)" }}>—</span>}
+              </td>
+              <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--dim)" }}>
+                {fmtDate(p.lastActive)}
+              </td>
+              <td className="px-4 py-3 text-xs" style={{ color: p.sessions ? "var(--text)" : "var(--muted)" }}>
+                {p.sessions != null ? (
+                  <span
+                    className="rounded px-2 py-0.5"
+                    style={{ background: "var(--surface2)", border: "1px solid var(--border2)" }}
+                  >
+                    {p.sessions}
+                  </span>
+                ) : "—"}
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );

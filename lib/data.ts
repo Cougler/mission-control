@@ -5,6 +5,7 @@ const HOME = process.env.HOME ?? "";
 const CLAUDE_JSON = path.join(HOME, ".claude.json");
 const SKILLS_DIR = path.join(HOME, ".claude", "skills");
 const SESSIONS_FILE = path.join(HOME, ".claude", "mission-control", "data", "sessions.jsonl");
+const APPS_DIR = path.join(HOME, "Apps");
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,9 @@ export interface Project {
   name: string;
   path: string;
   display: string;
+  description: string;
+  status: string;
+  stack: string[];
   lastActive: string | null;
   sessions: number | null;
 }
@@ -79,7 +83,10 @@ function parseSessions(lines: string[]): Session[] {
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 }
 
-function buildProjects(sessions: Session[], knownPaths: string[]): Project[] {
+function mergeSessionStats(
+  projects: Omit<Project, "lastActive" | "sessions">[],
+  sessions: Session[]
+): Project[] {
   const stats: Record<string, { lastActive: string; count: number }> = {};
   for (const s of sessions) {
     if (!s.cwd) continue;
@@ -91,21 +98,11 @@ function buildProjects(sessions: Session[], knownPaths: string[]): Project[] {
       if (d > stats[s.cwd].lastActive) stats[s.cwd].lastActive = d;
     }
   }
-
-  const allPaths = new Set([...knownPaths, ...Object.keys(stats)]);
-  return Array.from(allPaths)
-    .map((p) => ({
-      name: projectName(p),
-      path: p,
-      display: toDisplay(p),
-      lastActive: stats[p]?.lastActive ?? null,
-      sessions: stats[p]?.count ?? null,
-    }))
-    .sort((a, b) => {
-      if (a.path === HOME) return -1;
-      if (b.path === HOME) return 1;
-      return a.name.localeCompare(b.name);
-    });
+  return projects.map((p) => ({
+    ...p,
+    lastActive: stats[p.path]?.lastActive ?? null,
+    sessions: stats[p.path]?.count ?? null,
+  }));
 }
 
 // ── Local (dev) ────────────────────────────────────────────────────────────────
@@ -166,18 +163,41 @@ function getLocalSessions(): Session[] {
   return parseSessions(lines);
 }
 
-function getLocalKnownPaths(): string[] {
-  const data = readJSON(CLAUDE_JSON);
-  return Object.keys((data.projects as Record<string, unknown>) ?? {});
+function getLocalProjects(): Omit<Project, "lastActive" | "sessions">[] {
+  if (!fs.existsSync(APPS_DIR)) return [];
+  return fs
+    .readdirSync(APPS_DIR)
+    .filter((name) => fs.statSync(path.join(APPS_DIR, name)).isDirectory())
+    .sort()
+    .map((name) => {
+      const projectPath = path.join(APPS_DIR, name);
+      const mcFile = path.join(projectPath, ".mc.json");
+      let description = "", status = "", stack: string[] = [];
+      try {
+        const meta = JSON.parse(fs.readFileSync(mcFile, "utf-8"));
+        description = meta.description ?? "";
+        status = meta.status ?? "";
+        stack = meta.stack ?? [];
+      } catch { /* no metadata */ }
+      return {
+        name,
+        path: projectPath,
+        display: toDisplay(projectPath),
+        description,
+        status,
+        stack,
+      };
+    });
 }
 
 function getLocalData(): DashboardData {
   const sessions = getLocalSessions();
+  const rawProjects = getLocalProjects();
   return {
     lastUpdated: new Date().toISOString(),
     mcpServers: getLocalMCPServers(),
     skills: getLocalSkills(),
-    projects: buildProjects(sessions, getLocalKnownPaths()),
+    projects: mergeSessionStats(rawProjects, sessions),
     sessions,
   };
 }
@@ -187,7 +207,7 @@ function getLocalData(): DashboardData {
 interface RemoteConfig {
   mcpServers: MCPServer[];
   skills: Skill[];
-  knownProjects: string[];
+  projects: Omit<Project, "lastActive" | "sessions">[];
 }
 
 async function getRemoteData(baseUrl: string): Promise<DashboardData> {
@@ -202,7 +222,7 @@ async function getRemoteData(baseUrl: string): Promise<DashboardData> {
     lastUpdated: new Date().toISOString(),
     mcpServers: config.mcpServers ?? [],
     skills: config.skills ?? [],
-    projects: buildProjects(sessions, config.knownProjects ?? []),
+    projects: mergeSessionStats(config.projects ?? [], sessions),
     sessions,
   };
 }

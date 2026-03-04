@@ -1,0 +1,5 @@
+{
+  "description": "Claude Code command center — live dashboard tracking projects, skills, MCPs, and session history",
+  "status": "active",
+  "stack": ["Next.js", "TypeScript", "Tailwind CSS", "Vercel"]
+}
