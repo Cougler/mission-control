@@ -212,10 +212,12 @@ interface RemoteConfig {
 
 async function getRemoteData(baseUrl: string): Promise<DashboardData> {
   const base = baseUrl.replace(/\/$/, "");
-  const [sessionsText, config] = await Promise.all([
-    fetch(`${base}/sessions.jsonl`, { cache: "no-store" }).then((r) => r.text()),
-    fetch(`${base}/config.json`, { cache: "no-store" }).then((r) => r.json() as Promise<RemoteConfig>),
+  const bust = Date.now();
+  const [sessionsText, configText] = await Promise.all([
+    fetch(`${base}/sessions.jsonl?t=${bust}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } }).then((r) => r.text()),
+    fetch(`${base}/config.json?t=${bust}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } }).then((r) => r.text()),
   ]);
+  const config = JSON.parse(configText) as RemoteConfig;
 
   const sessions = parseSessions(sessionsText.split("\n"));
   return {
