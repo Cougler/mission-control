@@ -25,15 +25,17 @@ function fmtDate(iso: string | null): string {
 
 // ── Section Card ──────────────────────────────────────────────────────────────
 
-function Card({ title, icon, hint, children, className = "" }: {
+function Card({ title, icon, hint, children, className = "", id }: {
   title: string;
   icon: string;
   hint?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
     <div
+      id={id}
       className={`rounded-lg border flex flex-col ${className}`}
       style={{ background: "var(--surface)", borderColor: "var(--border)" }}
     >
@@ -41,7 +43,6 @@ function Card({ title, icon, hint, children, className = "" }: {
         className="flex items-center gap-2 px-4 py-3 border-b text-xs font-semibold tracking-widest uppercase"
         style={{ borderColor: "var(--border)", color: "var(--dim)" }}
       >
-        <span>{icon}</span>
         <span>{title}</span>
         {hint && <span className="ml-auto">{hint}</span>}
       </div>
@@ -297,94 +298,172 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, [fetchData]);
 
+  const [page, setPage] = useState<"dashboard" | "mcp" | "skills" | "projects">("dashboard");
+
   if (splash) return <SplashScreen />;
 
+  const navItems: { icon: string; label: string; page: typeof page }[] = [
+    { icon: "🎛", label: "Dashboard",       page: "dashboard" },
+    { icon: "⚡", label: "MCP Servers",     page: "mcp" },
+    { icon: "🛠", label: "Skills Registry", page: "skills" },
+    { icon: "📡", label: "Projects",        page: "projects" },
+  ];
+
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg)" }}>
+    <div className="flex min-h-screen" style={{ background: "var(--bg)" }}>
 
-      {/* Top bar */}
-      <header
-        className="sticky top-0 z-10 flex items-center justify-between border-b px-6 py-3"
-        style={{ background: "var(--bg)", borderColor: "var(--border)" }}
+      {/* Sidebar */}
+      <aside
+        className="sticky top-0 flex h-screen w-52 flex-shrink-0 flex-col border-r"
+        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
       >
-        <div className="flex items-center gap-3">
+        {/* Logo */}
+        <div className="flex items-center gap-2 border-b px-4 py-4" style={{ borderColor: "var(--border)" }}>
           <img src="/icon.svg" alt="" className="h-4 w-4" />
-          <span className="text-sm font-bold tracking-wider" style={{ color: "var(--text)" }}>
-            MISSION CONTROL
-          </span>
-          <span className="text-xs" style={{ color: "var(--muted)" }}>Aaron Cougle</span>
+          <span className="text-xs font-bold tracking-wider" style={{ color: "var(--text)" }}>MISSION CONTROL</span>
         </div>
-        <div className="flex items-center gap-4">
+
+        {/* Nav */}
+        <nav className="flex-1 px-2 py-3 space-y-0.5">
+          {navItems.map((item) => {
+            const active = page === item.page;
+            return (
+              <button
+                key={item.page}
+                onClick={() => setPage(item.page)}
+                className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-xs transition-colors"
+                style={{
+                  background: active ? "var(--surface2)" : "transparent",
+                  color: active ? "var(--text)" : "var(--dim)",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLButtonElement).style.background = "var(--surface2)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                }}
+              >
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Bottom status */}
+        <div className="border-t px-4 py-3 space-y-2" style={{ borderColor: "var(--border)" }}>
           {lastFetch && (
-            <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-              updated {timeAgo(lastFetch)}
-            </span>
+            <p className="text-[10px]" style={{ color: "var(--muted)" }}>updated {timeAgo(lastFetch)}</p>
           )}
-          <StatusPulse refreshing={refreshing} />
-          <button
-            onClick={fetchData}
-            disabled={refreshing}
-            className="rounded px-2 py-1 text-[11px] transition-colors"
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border2)",
-              color: "var(--dim)",
-              cursor: refreshing ? "default" : "pointer",
-            }}
-          >
-            ↻ refresh
-          </button>
-        </div>
-      </header>
-
-      {/* Error */}
-      {error && (
-        <div className="mx-6 mt-4 rounded border px-4 py-3 text-xs"
-          style={{ background: "var(--surface)", borderColor: "var(--red)", color: "var(--red)" }}>
-          Failed to load data: {error}
-        </div>
-      )}
-
-      {/* Loading skeleton */}
-      {!data && !error && (
-        <div className="flex h-64 items-center justify-center">
-          <span className="text-xs animate-pulse" style={{ color: "var(--muted)" }}>Loading dashboard…</span>
-        </div>
-      )}
-
-      {/* Dashboard grid */}
-      {data && (
-        <main className="mx-auto max-w-7xl p-6 space-y-6">
-
-          {/* Row 1: MCP + Skills side by side */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <Card
-              title="MCP Servers"
-              icon="⚡"
-              className="lg:col-span-1"
-              hint={
-                <code style={{ color: "var(--teal)" }}>/mcp</code>
-              }
+          <div className="flex items-center justify-between">
+            <StatusPulse refreshing={refreshing} />
+            <button
+              onClick={fetchData}
+              disabled={refreshing}
+              className="rounded px-2 py-1 text-[10px] transition-colors"
+              style={{
+                background: "var(--surface2)",
+                border: "1px solid var(--border2)",
+                color: "var(--dim)",
+                cursor: refreshing ? "default" : "pointer",
+              }}
             >
-              <MCPServers servers={data.mcpServers} />
-            </Card>
-            <Card title="Skills Registry" icon="🛠" className="lg:col-span-2">
-              <SkillsRegistry skills={data.skills} />
-            </Card>
+              ↻ refresh
+            </button>
           </div>
+        </div>
+      </aside>
 
-          {/* Row 2: Project status cards */}
-          <Card title={`Projects  ·  ${data.projects.length} active`} icon="📡">
-            <ProjectCards projects={data.projects} />
-          </Card>
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0">
 
-        </main>
-      )}
+        {/* Error */}
+        {error && (
+          <div className="mx-6 mt-4 rounded border px-4 py-3 text-xs"
+            style={{ background: "var(--surface)", borderColor: "var(--red)", color: "var(--red)" }}>
+            Failed to load data: {error}
+          </div>
+        )}
 
-      {/* Footer */}
-      <footer className="pb-8 text-center text-[11px]" style={{ color: "var(--muted)" }}>
-        Auto-refreshes every 30s · say <code style={{ color: "var(--dim)" }}>end mission</code> to log project status
-      </footer>
+        {/* Loading skeleton */}
+        {!data && !error && (
+          <div className="flex h-64 items-center justify-center">
+            <span className="text-xs animate-pulse" style={{ color: "var(--muted)" }}>Loading dashboard…</span>
+          </div>
+        )}
+
+        {/* Dashboard grid */}
+        {data && (
+          <main className="w-full mx-auto p-6 space-y-6" style={{ maxWidth: 1100 }}>
+
+            {/* Dashboard: all sections */}
+            {page === "dashboard" && <>
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <Card title="MCP Servers" icon="⚡" className="lg:col-span-1"
+                  hint={
+                    <span className="flex items-center gap-3">
+                      <code style={{ color: "var(--teal)" }}>/mcp</code>
+                      <button onClick={() => setPage("mcp")} className="text-[10px] transition-colors" style={{ color: "var(--muted)" }}
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.color = "var(--text)")}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.color = "var(--muted)")}
+                      >view all →</button>
+                    </span>
+                  }
+                >
+                  <MCPServers servers={data.mcpServers} />
+                </Card>
+                <Card title="Skills Registry" icon="🛠" className="lg:col-span-2"
+                  hint={
+                    <button onClick={() => setPage("skills")} className="text-[10px] normal-case tracking-normal font-normal transition-colors" style={{ color: "var(--muted)" }}
+                      onMouseEnter={(e) => ((e.target as HTMLElement).style.color = "var(--text)")}
+                      onMouseLeave={(e) => ((e.target as HTMLElement).style.color = "var(--muted)")}
+                    >view all →</button>
+                  }
+                >
+                  <SkillsRegistry skills={data.skills} />
+                </Card>
+              </div>
+              <Card title={`Projects  ·  ${data.projects.length} active`} icon="📡"
+                hint={
+                  <button onClick={() => setPage("projects")} className="text-[10px] normal-case tracking-normal font-normal transition-colors" style={{ color: "var(--muted)" }}
+                    onMouseEnter={(e) => ((e.target as HTMLElement).style.color = "var(--text)")}
+                    onMouseLeave={(e) => ((e.target as HTMLElement).style.color = "var(--muted)")}
+                  >view all →</button>
+                }
+              >
+                <ProjectCards projects={data.projects} />
+              </Card>
+            </>}
+
+            {/* MCP Servers page */}
+            {page === "mcp" && (
+              <Card title="MCP Servers" icon="⚡" hint={<code style={{ color: "var(--teal)" }}>/mcp</code>}>
+                <MCPServers servers={data.mcpServers} />
+              </Card>
+            )}
+
+            {/* Skills page */}
+            {page === "skills" && (
+              <Card title="Skills Registry" icon="🛠">
+                <SkillsRegistry skills={data.skills} />
+              </Card>
+            )}
+
+            {/* Projects page */}
+            {page === "projects" && (
+              <Card title={`Projects  ·  ${data.projects.length} active`} icon="📡">
+                <ProjectCards projects={data.projects} />
+              </Card>
+            )}
+
+          </main>
+        )}
+
+        {/* Footer */}
+        <footer className="mt-auto pb-8 text-center text-[11px]" style={{ color: "var(--muted)" }}>
+          Auto-refreshes every 30s · say <code style={{ color: "var(--dim)" }}>end mission</code> to log project status
+        </footer>
+
+      </div>
     </div>
   );
 }
