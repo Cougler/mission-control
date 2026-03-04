@@ -167,7 +167,7 @@ function getLocalProjects(): Omit<Project, "lastActive" | "sessions">[] {
   if (!fs.existsSync(APPS_DIR)) return [];
   return fs
     .readdirSync(APPS_DIR)
-    .filter((name) => fs.statSync(path.join(APPS_DIR, name)).isDirectory())
+    .filter((name) => !name.startsWith(".") && fs.statSync(path.join(APPS_DIR, name)).isDirectory())
     .sort()
     .map((name) => {
       const projectPath = path.join(APPS_DIR, name);
