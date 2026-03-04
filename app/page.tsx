@@ -57,7 +57,7 @@ function MCPServers({ servers }: { servers: MCPServer[] }) {
     return <p className="px-4 py-4 text-xs" style={{ color: "var(--muted)" }}>No MCP servers configured.</p>;
   }
   return (
-    <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+    <div className="divide-y">
       {servers.map((s) => (
         <div key={s.name} className="flex items-center gap-3 px-4 py-3">
           <span
@@ -93,6 +93,11 @@ function SkillsRegistry({ skills }: { skills: Skill[] }) {
   }
   return (
     <table>
+      <colgroup>
+        <col style={{ width: "50%" }} />
+        <col style={{ width: "25%" }} />
+        <col style={{ width: "25%" }} />
+      </colgroup>
       <thead>
         <tr style={{ borderBottom: "1px solid var(--border)" }}>
           {["Skill", "Invoke", "Added"].map((h) => (
@@ -112,12 +117,12 @@ function SkillsRegistry({ skills }: { skills: Skill[] }) {
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
             <td className="px-4 py-3">
-              <div className="font-semibold" style={{ color: "var(--text)" }}>{sk.name}</div>
-              <div className="mt-0.5 text-[11px] leading-relaxed" style={{ color: "var(--dim)" }}>
+              <div className="font-semibold text-xs" style={{ color: "var(--text)" }}>{sk.name}</div>
+              <div className="mt-0.5 text-[10px] leading-relaxed" style={{ color: "var(--dim)" }}>
                 {sk.description}
               </div>
             </td>
-            <td className="px-4 py-3">
+            <td className="px-4 py-3 whitespace-nowrap">
               <span
                 className="rounded px-2 py-1 text-xs"
                 style={{ background: "var(--surface2)", color: "var(--teal)", border: "1px solid var(--border2)" }}
@@ -218,15 +223,57 @@ function StatusPulse({ refreshing }: { refreshing: boolean }) {
   );
 }
 
+// ── Splash Screen ──────────────────────────────────────────────────────────────
+
+function SplashScreen() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const duration = 1800;
+    const start = performance.now();
+    let raf: number;
+    const tick = () => {
+      const pct = Math.min(((performance.now() - start) / duration) * 100, 100);
+      setProgress(pct);
+      if (pct < 100) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6" style={{ background: "var(--bg)" }}>
+      <p className="text-xs tracking-[0.3em] uppercase" style={{ color: "var(--dim)" }}>
+        Mission Control
+      </p>
+      <div className="w-64 overflow-hidden rounded-sm" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div
+          className="h-1 rounded-sm"
+          style={{ width: `${progress}%`, background: "var(--green)", boxShadow: "0 0 8px var(--green)" }}
+        />
+      </div>
+      <p className="text-[11px] tracking-[0.2em] uppercase" style={{ color: "var(--muted)", animation: "pulse 1.4s ease-in-out infinite" }}>
+        Initializing…
+      </p>
+    </div>
+  );
+}
+
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 
 const REFRESH_MS = 30_000;
 
 export default function Dashboard() {
+  const [splash, setSplash] = useState(true);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastFetch, setLastFetch] = useState<string | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSplash(false), 2000);
+    return () => clearTimeout(t);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setRefreshing(true);
@@ -250,6 +297,8 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, [fetchData]);
 
+  if (splash) return <SplashScreen />;
+
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
 
@@ -259,8 +308,9 @@ export default function Dashboard() {
         style={{ background: "var(--bg)", borderColor: "var(--border)" }}
       >
         <div className="flex items-center gap-3">
+          <img src="/icon.svg" alt="" className="h-4 w-4" />
           <span className="text-sm font-bold tracking-wider" style={{ color: "var(--text)" }}>
-            🎛 MISSION CONTROL
+            MISSION CONTROL
           </span>
           <span className="text-xs" style={{ color: "var(--muted)" }}>Aaron Cougle</span>
         </div>
@@ -313,10 +363,7 @@ export default function Dashboard() {
               icon="⚡"
               className="lg:col-span-1"
               hint={
-                <span className="normal-case tracking-normal font-normal" style={{ color: "var(--muted)" }}>
-                  How to access MCP servers through Claude Code:{" "}
-                  <code style={{ color: "var(--teal)" }}>/mcp</code>
-                </span>
+                <code style={{ color: "var(--teal)" }}>/mcp</code>
               }
             >
               <MCPServers servers={data.mcpServers} />

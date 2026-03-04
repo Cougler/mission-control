@@ -51,6 +51,18 @@ html, body {
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
 
+/* Satellite glow pulse */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+
+/* Subtle dividers */
+:where(.divide-y > :not(:last-child)) {
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
 /* Table resets */
 table { border-collapse: collapse; width: 100%; }
 th { font-weight: 500; text-align: left; }
